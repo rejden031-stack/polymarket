@@ -29,6 +29,7 @@ class TradingEngine:
         self.watchdog = Watchdog()
         self.tg = TelegramNotifier(config.telegram)
         self.running = False
+        self.trading_enabled = True
 
     def _tg_status(self) -> dict:
         return {
@@ -37,6 +38,7 @@ class TradingEngine:
             "daily_trades": self.paper_trader.daily_trades,
             "uptime": 0,
             "stopped": self.risk.is_stopped,
+            "trading": self.trading_enabled,
         }
 
     def _tg_trades(self) -> list:
@@ -64,6 +66,11 @@ class TradingEngine:
             for p in self.paper_trader.positions.values()
         ]
 
+    def _tg_toggle_trading(self) -> str:
+        self.trading_enabled = not self.trading_enabled
+        status = "started" if self.trading_enabled else "stopped"
+        return status
+
     async def start(self):
         logger.info("Starting trading engine (dry_run=%s)", self.config.dry_run)
         await self.client.start()
@@ -83,6 +90,7 @@ class TradingEngine:
             "get_trades": self._tg_trades,
             "get_pnl": self._tg_pnl,
             "get_positions": self._tg_positions,
+            "toggle_trading": self._tg_toggle_trading,
         })
 
     async def stop(self):
@@ -96,20 +104,21 @@ class TradingEngine:
         await self.start()
 
         while self.running:
-            try:
-                await self.scan_cycle()
-                self.watchdog.record_success()
-            except Exception as e:
-                self.watchdog.record_error(str(e))
-                logger.exception("Scan cycle failed")
-                await self.tg.send_error(f"Scan cycle failed: {e}")
+            if self.trading_enabled:
+                try:
+                    await self.scan_cycle()
+                    self.watchdog.record_success()
+                except Exception as e:
+                    self.watchdog.record_error(str(e))
+                    logger.exception("Scan cycle failed")
+                    await self.tg.send_error(f"Scan cycle failed: {e}")
 
-            if not self.watchdog.status.is_healthy:
-                logger.critical("Too many errors, stopping engine")
-                await self.tg.send_error("Too many errors — engine stopping")
-                break
+                if not self.watchdog.status.is_healthy:
+                    logger.critical("Too many errors, stopping engine")
+                    await self.tg.send_error("Too many errors — engine stopping")
+                    break
 
-            await asyncio.sleep(self.config.scan.interval_seconds)
+            await asyncio.sleep(10)
 
         await self.stop()
 

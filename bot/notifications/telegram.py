@@ -13,10 +13,11 @@ _MAIN_KEYBOARD = {
     "keyboard": [
         [{"text": "📊 Status"}, {"text": "📈 PnL"}],
         [{"text": "📋 Trades"}, {"text": "📍 Positions"}],
+        [{"text": "▶️ Start Trading"}, {"text": "⏹️ Stop Trading"}],
         [{"text": "❓ Help"}],
     ],
     "resize_keyboard": True,
-    "persistent": True,
+    "one_time_keyboard": False,
 }
 
 _BUTTON_CMDS = {
@@ -24,6 +25,8 @@ _BUTTON_CMDS = {
     "📈 PnL": "/pnl",
     "📋 Trades": "/trades",
     "📍 Positions": "/positions",
+    "▶️ Start Trading": "/start_trading",
+    "⏹️ Stop Trading": "/stop_trading",
     "❓ Help": "/help",
 }
 
@@ -160,6 +163,8 @@ class TelegramNotifier:
             "/trades": self._cmd_trades,
             "/pnl": self._cmd_pnl,
             "/positions": self._cmd_positions,
+            "/start_trading": self._cmd_start_trading,
+            "/stop_trading": self._cmd_stop_trading,
         }
         handler = cmd_map.get(cmd)
         if handler:
@@ -167,6 +172,26 @@ class TelegramNotifier:
         else:
             reply = "Unknown command. Use the buttons below."
         await self._send(reply, keyboard=_MAIN_KEYBOARD)
+
+    async def _cmd_start_trading(self, ctx: dict) -> str:
+        toggle = ctx.get("toggle_trading")
+        if not toggle:
+            return "Trading control unavailable"
+        status = toggle()
+        if status == "started":
+            return "▶️ Trading started"
+        else:
+            return "Trading is already running."
+
+    async def _cmd_stop_trading(self, ctx: dict) -> str:
+        toggle = ctx.get("toggle_trading")
+        if not toggle:
+            return "Trading control unavailable"
+        status = toggle()
+        if status == "stopped":
+            return "⏹️ Trading stopped"
+        else:
+            return "Trading is already stopped."
 
     async def _cmd_start(self, ctx: dict) -> str:
         return "<b>Polymarket Bot</b>\nUse the buttons below to control the bot."
@@ -192,7 +217,8 @@ class TelegramNotifier:
             f"Balance: {s.get('balance', '?')} USDC\n"
             f"Trades today: {s.get('daily_trades', 0)}\n"
             f"Uptime: {s.get('uptime', 0)}s\n"
-            f"Circuit breaker: {'🚨 STOPPED' if s.get('stopped') else '✅ OK'}"
+            f"Circuit breaker: {'🚨 STOPPED' if s.get('stopped') else '✅ OK'}\n"
+            f"Trading: {'▶️ Active' if s.get('trading') else '⏹️ Paused'}"
         )
 
     async def _cmd_trades(self, ctx: dict) -> str:
