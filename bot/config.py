@@ -2,6 +2,8 @@ from pathlib import Path
 from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+import os
+
 import yaml
 
 
@@ -37,6 +39,17 @@ class ScanConfig(BaseSettings):
     top_n_markets: int = 20
 
 
+class TelegramConfig(BaseSettings):
+    token: str = ""
+    chat_id: str = ""
+    notify_on: dict = {
+        "startup": True,
+        "trade": True,
+        "error": True,
+        "daily_summary": True,
+    }
+
+
 class LoggingConfig(BaseSettings):
     level: str = "INFO"
     format: str = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
@@ -52,8 +65,7 @@ class BotConfig(BaseSettings):
 
     dry_run: bool = True
 
-    telegram_token: str | None = None
-    telegram_chat_id: str | None = None
+    telegram: TelegramConfig = TelegramConfig()
 
     arbitrage: ArbitrageConfig = ArbitrageConfig()
     market_making: MarketMakingConfig = MarketMakingConfig()
@@ -78,4 +90,13 @@ class BotConfig(BaseSettings):
                 cfg.scan = ScanConfig(**raw["scan"])
             if "logging" in raw:
                 cfg.logging = LoggingConfig(**raw["logging"])
+
+        tg_kwargs = {}
+        if "telegram" in raw:
+            tg_kwargs.update(raw["telegram"])
+        for env_key, field in [("TELEGRAM_TOKEN", "token"), ("TELEGRAM_CHAT_ID", "chat_id")]:
+            val = os.environ.get(env_key)
+            if val:
+                tg_kwargs[field] = val
+        cfg.telegram = TelegramConfig(**tg_kwargs)
         return cfg

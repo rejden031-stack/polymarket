@@ -10,6 +10,7 @@ from bot.core.paper_trader import PaperTrader
 from bot.health.watchdog import Watchdog
 from bot.market_making.engine import MarketMakingEngine
 from bot.models import OrderBook, Portfolio, Signal, TradeSource
+from bot.notifications.telegram import TelegramNotifier
 from bot.reconciliation.engine import ReconciliationEngine
 from bot.risk.manager import RiskManager
 
@@ -26,6 +27,7 @@ class TradingEngine:
         self.paper_trader = PaperTrader(data_dir=config.logging.file.rsplit("/", 1)[0] if "/" in config.logging.file else "./data")
         self.recon = ReconciliationEngine(self.client)
         self.watchdog = Watchdog()
+        self.tg = TelegramNotifier(config.telegram)
         self.running = False
 
     async def start(self):
@@ -36,9 +38,17 @@ class TradingEngine:
         if self.config.dry_run:
             logger.info("Paper trading mode: initial balance = %s", self.paper_trader.balance)
 
+        await self.tg.send_startup(
+            mode="paper" if self.config.dry_run else "live",
+            strategy="all",
+            balance=str(self.paper_trader.balance) if self.config.dry_run else "?",
+        )
+
     async def stop(self):
         self.running = False
         await self.client.stop()
+        await self.tg.send_shutdown()
+        await self.tg.close()
         logger.info("Trading engine stopped")
 
     async def run_forever(self):
@@ -51,9 +61,11 @@ class TradingEngine:
             except Exception as e:
                 self.watchdog.record_error(str(e))
                 logger.exception("Scan cycle failed")
+                await self.tg.send_error(f"Scan cycle failed: {e}")
 
             if not self.watchdog.status.is_healthy:
                 logger.critical("Too many errors, stopping engine")
+                await self.tg.send_error("Too many errors — engine stopping")
                 break
 
             await asyncio.sleep(self.config.scan.interval_seconds)
@@ -63,6 +75,7 @@ class TradingEngine:
     async def scan_cycle(self):
         if self.risk.is_stopped:
             logger.warning("Engine stopped by circuit breaker")
+            await self.tg.send_circuit_breaker("Circuit breaker activated")
             return
 
         if self.config.dry_run:
@@ -190,5 +203,8 @@ class TradingEngine:
                     logger.info("Order executed: strategy=%s, signal=%s, order=%s",
                                 signal.strategy.value, signal.action.value, result.order_id)
 
+                await self.tg.send_trade(result, signal.strategy.value)
+
         except Exception as e:
             logger.warning("Error processing market token %s: %s", token_id[:16] if len(str(token_id)) > 16 else token_id, e)
+            await self.tg.send_error(f"Market processing failed: {e}")

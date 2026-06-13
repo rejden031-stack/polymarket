@@ -25,6 +25,13 @@ scan:
   min_market_liquidity: 5_000
   top_n_markets: 20
 
+telegram:
+  notify_on:
+    startup: true
+    trade: true
+    error: true
+    daily_summary: true
+
 logging:
   level: INFO
   format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
