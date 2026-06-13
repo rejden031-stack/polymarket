@@ -9,6 +9,24 @@ from bot.models import TradeResult
 
 logger = logging.getLogger(__name__)
 
+_MAIN_KEYBOARD = {
+    "keyboard": [
+        [{"text": "📊 Status"}, {"text": "📈 PnL"}],
+        [{"text": "📋 Trades"}, {"text": "📍 Positions"}],
+        [{"text": "❓ Help"}],
+    ],
+    "resize_keyboard": True,
+    "persistent": True,
+}
+
+_BUTTON_CMDS = {
+    "📊 Status": "/status",
+    "📈 PnL": "/pnl",
+    "📋 Trades": "/trades",
+    "📍 Positions": "/positions",
+    "❓ Help": "/help",
+}
+
 
 class TelegramNotifier:
     def __init__(self, config: TelegramConfig):
@@ -24,13 +42,16 @@ class TelegramNotifier:
             self._client = httpx.AsyncClient(timeout=10)
             self._poll_client = httpx.AsyncClient(timeout=35)
 
-    async def _send(self, text: str) -> bool:
+    async def _send(self, text: str, keyboard: dict | None = None) -> bool:
         if not self._enabled:
             return False
         try:
+            payload = {"chat_id": self._chat_id, "text": text, "parse_mode": "HTML"}
+            if keyboard:
+                payload["reply_markup"] = keyboard
             resp = await self._client.post(
                 f"{self._base_url}/sendMessage",
-                json={"chat_id": self._chat_id, "text": text, "parse_mode": "HTML"},
+                json=payload,
             )
             resp.raise_for_status()
             return True
@@ -122,8 +143,7 @@ class TelegramNotifier:
                     chat_id = msg["chat"]["id"]
                     if str(chat_id) != str(self._chat_id):
                         continue
-                    if text.startswith("/"):
-                        await self._handle_command(text, ctx)
+                    await self._handle_command(text, ctx)
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -131,7 +151,7 @@ class TelegramNotifier:
                 await asyncio.sleep(10)
 
     async def _handle_command(self, text: str, ctx: dict):
-        cmd = text.split()[0].lower()
+        cmd = _BUTTON_CMDS.get(text.strip(), text.split()[0].lower())
         cmd_map = {
             "/start": self._cmd_start,
             "/help": self._cmd_help,
@@ -145,19 +165,11 @@ class TelegramNotifier:
             reply = await handler(ctx)
         else:
             reply = "Unknown command. Try /help"
-        await self._send(reply)
+        keyboard = _MAIN_KEYBOARD if cmd == "/start" else None
+        await self._send(reply, keyboard=keyboard)
 
     async def _cmd_start(self, ctx: dict) -> str:
-        return (
-            "<b>Polymarket Bot</b>\n"
-            "Automated trading bot for Polymarket prediction markets.\n"
-            "Commands:\n"
-            "/status — current state\n"
-            "/trades — last 10 trades\n"
-            "/pnl — profit & loss\n"
-            "/positions — open positions\n"
-            "/help — this message"
-        )
+        return "<b>Polymarket Bot</b>\nUse the buttons below to control the bot."
 
     async def _cmd_help(self, ctx: dict) -> str:
         return (
