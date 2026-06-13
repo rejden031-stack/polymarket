@@ -1,0 +1,26 @@
+name: polymarket-bot
+service:
+  health: /health
+  port: 8000
+  type: web
+  dockerfile: Dockerfile
+  git:
+    url: https://github.com/rejden031-stack/polymarket
+    branch: master
+  env:
+    - key: DRY_RUN
+      value: "True"
+    - key: TELEGRAM_TOKEN
+      secret: true
+    - key: TELEGRAM_CHAT_ID
+      secret: true
+    - key: POLYMARKET_PRIVATE_KEY
+      secret: true
+    - key: POLYMARKET_WALLET_ADDRESS
+      secret: true
+    - key: POLYMARKET_SIGNATURE_TYPE
+      value: "0"
+    - key: CONFIG_PATH
+      value: "config/config.yaml"
+  regions:
+    - fra

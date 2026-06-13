@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.git/
+.gitignore
+data/
+tests/
+Dockerfile
+koyeb.yaml
+README.md
+*.egg-info/
+.idea/
+.vscode/
