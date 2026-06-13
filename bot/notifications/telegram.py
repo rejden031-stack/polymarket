@@ -69,6 +69,7 @@ class TelegramNotifier:
             f"Balance: {balance} USDC"
         )
         await self._send(text)
+        await self._send("Use buttons below to control the bot:", keyboard=_MAIN_KEYBOARD)
 
     async def send_shutdown(self):
         if not self._notify_on.get("startup", True):
@@ -164,9 +165,8 @@ class TelegramNotifier:
         if handler:
             reply = await handler(ctx)
         else:
-            reply = "Unknown command. Try /help"
-        keyboard = _MAIN_KEYBOARD if cmd == "/start" else None
-        await self._send(reply, keyboard=keyboard)
+            reply = "Unknown command. Use the buttons below."
+        await self._send(reply, keyboard=_MAIN_KEYBOARD)
 
     async def _cmd_start(self, ctx: dict) -> str:
         return "<b>Polymarket Bot</b>\nUse the buttons below to control the bot."
