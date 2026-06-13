@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic_settings import BaseSettings, SettingsConfigDict
 import os
 
+from dotenv import load_dotenv
 import yaml
 
 
@@ -75,6 +76,7 @@ class BotConfig(BaseSettings):
 
     @classmethod
     def load(cls, config_path: str | Path = "config/config.yaml") -> "BotConfig":
+        load_dotenv()
         cfg = cls()
         path = Path(config_path)
         if path.exists():

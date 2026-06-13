@@ -30,6 +30,40 @@ class TradingEngine:
         self.tg = TelegramNotifier(config.telegram)
         self.running = False
 
+    def _tg_status(self) -> dict:
+        return {
+            "mode": "paper" if self.config.dry_run else "live",
+            "balance": str(self.paper_trader.balance),
+            "daily_trades": self.paper_trader.daily_trades,
+            "uptime": 0,
+            "stopped": self.risk.is_stopped,
+        }
+
+    def _tg_trades(self) -> list:
+        return self.paper_trader.trades
+
+    def _tg_pnl(self) -> dict:
+        dd = 0.0
+        if self.paper_trader.peak_balance > 0:
+            dd = float((self.paper_trader.peak_balance - self.paper_trader.balance) / self.paper_trader.peak_balance * 100)
+        return {
+            "daily_pnl": str(self.paper_trader.daily_pnl),
+            "total_pnl": str(self.paper_trader.total_pnl),
+            "drawdown": f"{dd:.2f}",
+            "peak": str(self.paper_trader.peak_balance),
+        }
+
+    def _tg_positions(self) -> list:
+        return [
+            {
+                "token_id": p.token_id,
+                "size": str(p.size),
+                "entry": str(p.entry_price),
+                "current": str(p.current_price),
+            }
+            for p in self.paper_trader.positions.values()
+        ]
+
     async def start(self):
         logger.info("Starting trading engine (dry_run=%s)", self.config.dry_run)
         await self.client.start()
@@ -43,6 +77,13 @@ class TradingEngine:
             strategy="all",
             balance=str(self.paper_trader.balance) if self.config.dry_run else "?",
         )
+
+        await self.tg.start_polling({
+            "get_status": self._tg_status,
+            "get_trades": self._tg_trades,
+            "get_pnl": self._tg_pnl,
+            "get_positions": self._tg_positions,
+        })
 
     async def stop(self):
         self.running = False
