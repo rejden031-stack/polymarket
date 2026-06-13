@@ -11,23 +11,23 @@ logger = logging.getLogger(__name__)
 
 _MAIN_KEYBOARD = {
     "keyboard": [
-        [{"text": "📊 Status"}, {"text": "📈 PnL"}],
-        [{"text": "📋 Trades"}, {"text": "📍 Positions"}],
-        [{"text": "▶️ Start Trading"}, {"text": "⏹️ Stop Trading"}],
-        [{"text": "❓ Help"}],
+        [{"text": "📊 Статус"}, {"text": "📈 PnL"}],
+        [{"text": "📋 Сделки"}, {"text": "📍 Позиции"}],
+        [{"text": "▶️ Старт"}, {"text": "⏹️ Стоп"}],
+        [{"text": "❓ Помощь"}],
     ],
     "resize_keyboard": True,
     "one_time_keyboard": False,
 }
 
 _BUTTON_CMDS = {
-    "📊 Status": "/status",
+    "📊 Статус": "/status",
     "📈 PnL": "/pnl",
-    "📋 Trades": "/trades",
-    "📍 Positions": "/positions",
-    "▶️ Start Trading": "/start_trading",
-    "⏹️ Stop Trading": "/stop_trading",
-    "❓ Help": "/help",
+    "📋 Сделки": "/trades",
+    "📍 Позиции": "/positions",
+    "▶️ Старт": "/start_trading",
+    "⏹️ Стоп": "/stop_trading",
+    "❓ Помощь": "/help",
 }
 
 
@@ -65,38 +65,39 @@ class TelegramNotifier:
     async def send_startup(self, mode: str, strategy: str, balance: str):
         if not self._notify_on.get("startup", True):
             return
+        mode_label = "бумага" if mode == "paper" else "реал"
         text = (
-            f"<b>Bot started</b>\n"
-            f"Mode: {mode}\n"
-            f"Strategy: {strategy}\n"
-            f"Balance: {balance} USDC"
+            f"<b>Бот запущен</b>\n"
+            f"Режим: {mode_label}\n"
+            f"Стратегия: {strategy}\n"
+            f"Баланс: {balance} USDC"
         )
         await self._send(text)
-        await self._send("Use buttons below to control the bot:", keyboard=_MAIN_KEYBOARD)
+        await self._send("Кнопки управления:", keyboard=_MAIN_KEYBOARD)
 
     async def send_shutdown(self):
         if not self._notify_on.get("startup", True):
             return
-        await self._send("<b>Bot stopped</b>")
+        await self._send("<b>Бот остановлен</b>")
 
     async def send_trade(self, result: TradeResult, strategy: str):
         if not self._notify_on.get("trade", True):
             return
         emoji = "✅" if result.success else "❌"
-        status = "Executed" if result.success else "Failed"
-        text = f"{emoji} <b>Trade {status}</b>\nStrategy: {strategy}\n"
+        status = "Исполнена" if result.success else "Отклонена"
+        text = f"{emoji} <b>Сделка {status}</b>\nСтратегия: {strategy}\n"
         if result.order_id:
-            text += f"Order: <code>{result.order_id[:20]}</code>\n"
+            text += f"Ордер: <code>{result.order_id[:20]}</code>\n"
         if result.success and result.filled_price:
-            text += f"Price: {result.filled_price}\nSize: {result.filled_size}"
+            text += f"Цена: {result.filled_price}\nРазмер: {result.filled_size}"
         if not result.success and result.message:
-            text += f"Reason: {result.message}"
+            text += f"Причина: {result.message}"
         await self._send(text)
 
     async def send_error(self, error_msg: str):
         if not self._notify_on.get("error", True):
             return
-        text = f"<b>Error</b>\n<code>{error_msg[:200]}</code>"
+        text = f"<b>Ошибка</b>\n<code>{error_msg[:200]}</code>"
         await self._send(text)
 
     async def send_daily_summary(self, pnl: str, trades: int, balance: str, drawdown: str):
@@ -105,16 +106,16 @@ class TelegramNotifier:
         pnl_num = float(pnl)
         emoji = "📈" if pnl_num >= 0 else "📉"
         text = (
-            f"{emoji} <b>Daily Summary</b>\n"
+            f"{emoji} <b>Дневной итог</b>\n"
             f"PnL: {pnl} USDC\n"
-            f"Trades: {trades}\n"
-            f"Balance: {balance} USDC\n"
-            f"Drawdown: {drawdown}%"
+            f"Сделок: {trades}\n"
+            f"Баланс: {balance} USDC\n"
+            f"Просадка: {drawdown}%"
         )
         await self._send(text)
 
     async def send_circuit_breaker(self, reason: str):
-        text = f"🚨 <b>Circuit Breaker Activated</b>\n<code>{reason}</code>"
+        text = f"🚨 <b>Circuit Breaker Сработал</b>\n<code>{reason}</code>"
         await self._send(text)
 
     async def start_polling(self, ctx: dict):
@@ -170,65 +171,66 @@ class TelegramNotifier:
         if handler:
             reply = await handler(ctx)
         else:
-            reply = "Unknown command. Use the buttons below."
+            reply = "Неизвестная команда. Используйте кнопки."
         await self._send(reply, keyboard=_MAIN_KEYBOARD)
 
     async def _cmd_start_trading(self, ctx: dict) -> str:
         toggle = ctx.get("toggle_trading")
         if not toggle:
-            return "Trading control unavailable"
+            return "Управление недоступно"
         status = toggle()
         if status == "started":
-            return "▶️ Trading started"
+            return "▶️ Торговля запущена"
         else:
-            return "Trading is already running."
+            return "Торговля уже работает."
 
     async def _cmd_stop_trading(self, ctx: dict) -> str:
         toggle = ctx.get("toggle_trading")
         if not toggle:
-            return "Trading control unavailable"
+            return "Управление недоступно"
         status = toggle()
         if status == "stopped":
-            return "⏹️ Trading stopped"
+            return "⏹️ Торговля остановлена"
         else:
-            return "Trading is already stopped."
+            return "Торговля уже остановлена."
 
     async def _cmd_start(self, ctx: dict) -> str:
-        return "<b>Polymarket Bot</b>\nUse the buttons below to control the bot."
+        return "<b>Polymarket Bot</b>\nКнопки управления внизу экрана."
 
     async def _cmd_help(self, ctx: dict) -> str:
         return (
-            "<b>Commands:</b>\n"
-            "/status — bot mode, balance, uptime\n"
-            "/trades — last 10 trades\n"
-            "/pnl — daily and total PnL\n"
-            "/positions — open positions with current value\n"
-            "/help — this message"
+            "<b>Команды:</b>\n"
+            "📊 Статус — режим, баланс, состояние\n"
+            "📈 PnL — прибыль и просадка\n"
+            "📋 Сделки — последние 10 сделок\n"
+            "📍 Позиции — открытые позиции\n"
+            "▶️ Старт — запустить торговлю\n"
+            "⏹️ Стоп — остановить торговлю"
         )
 
     async def _cmd_status(self, ctx: dict) -> str:
         get_status = ctx.get("get_status")
         if not get_status:
-            return "Status unavailable"
+            return "Статус недоступен"
         s = get_status()
         return (
-            f"<b>Bot Status</b>\n"
-            f"Mode: {s.get('mode', '?')}\n"
-            f"Balance: {s.get('balance', '?')} USDC\n"
-            f"Trades today: {s.get('daily_trades', 0)}\n"
-            f"Uptime: {s.get('uptime', 0)}s\n"
-            f"Circuit breaker: {'🚨 STOPPED' if s.get('stopped') else '✅ OK'}\n"
-            f"Trading: {'▶️ Active' if s.get('trading') else '⏹️ Paused'}"
+            f"<b>Статус бота</b>\n"
+            f"Режим: {s.get('mode', '?')}\n"
+            f"Баланс: {s.get('balance', '?')} USDC\n"
+            f"Сделок сегодня: {s.get('daily_trades', 0)}\n"
+            f"Аптайм: {s.get('uptime', 0)}с\n"
+            f"Circuit breaker: {'🚨 ОСТАНОВЛЕН' if s.get('stopped') else '✅ ОК'}\n"
+            f"Торговля: {'▶️ Активна' if s.get('trading') else '⏹️ На паузе'}"
         )
 
     async def _cmd_trades(self, ctx: dict) -> str:
         get_trades = ctx.get("get_trades")
         if not get_trades:
-            return "Trades unavailable"
+            return "Сделки недоступны"
         trades = get_trades()
         if not trades:
-            return "No trades yet"
-        lines = ["<b>Last 10 trades:</b>"]
+            return "Сделок пока нет"
+        lines = ["<b>Последние 10 сделок:</b>"]
         for t in trades[-10:]:
             lines.append(
                 f"{t['timestamp'][:19]} | {t['action']:4s} | "
@@ -239,29 +241,29 @@ class TelegramNotifier:
     async def _cmd_pnl(self, ctx: dict) -> str:
         get_pnl = ctx.get("get_pnl")
         if not get_pnl:
-            return "PnL unavailable"
+            return "PnL недоступен"
         p = get_pnl()
         return (
-            f"<b>PnL Report</b>\n"
-            f"Daily PnL: {p.get('daily_pnl', '?')} USDC\n"
-            f"Total PnL: {p.get('total_pnl', '?')} USDC\n"
-            f"Drawdown: {p.get('drawdown', '?')}%\n"
-            f"Peak balance: {p.get('peak', '?')} USDC"
+            f"<b>Отчёт PnL</b>\n"
+            f"Дневной PnL: {p.get('daily_pnl', '?')} USDC\n"
+            f"Общий PnL: {p.get('total_pnl', '?')} USDC\n"
+            f"Просадка: {p.get('drawdown', '?')}%\n"
+            f"Пик баланса: {p.get('peak', '?')} USDC"
         )
 
     async def _cmd_positions(self, ctx: dict) -> str:
         get_positions = ctx.get("get_positions")
         if not get_positions:
-            return "Positions unavailable"
+            return "Позиции недоступны"
         positions = get_positions()
         if not positions:
-            return "No open positions"
-        lines = ["<b>Open positions:</b>"]
+            return "Нет открытых позиций"
+        lines = ["<b>Открытые позиции:</b>"]
         for p in positions:
             lines.append(
                 f"<code>{p['token_id'][:16]}...</code> | "
-                f"size {p['size']} | entry {p['entry']} | "
-                f"current {p['current']}"
+                f"размер {p['size']} | вход {p['entry']} | "
+                f"сейчас {p['current']}"
             )
         return "\n".join(lines)
 
