@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import sys
 from contextlib import asynccontextmanager
 from datetime import datetime
 
@@ -8,6 +9,11 @@ from fastapi import FastAPI
 from bot.config import BotConfig
 from bot.core.engine import TradingEngine
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    stream=sys.stdout,
+)
 logger = logging.getLogger(__name__)
 
 engine: TradingEngine | None = None
